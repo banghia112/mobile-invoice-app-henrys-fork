@@ -1,6 +1,6 @@
 ### Objective
 
-Your challenge is to build out this Mobile invoicing app for Terem Technologies's accounting department and implement all functionality outlined in the **Expected Behaviour** section.
+Your challenge is to build out this Mobile invoicing app for Terem accounting department and implement all functionality outlined in the **Expected Behaviour** section.
 
 ### Brief
 
