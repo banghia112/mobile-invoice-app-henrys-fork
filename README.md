@@ -60,4 +60,4 @@ Please organize, design, test and document your code as if it were going into pr
 
 **Have fun building!** 🚀
 
-The Terem Technologies Team
+The Terem Team
