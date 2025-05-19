@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
+import invoiceService from '@/service/invoice.service';
 import { useEffect } from 'react';
 import { Appearance } from 'react-native';
 
@@ -15,7 +16,14 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    Appearance.setColorScheme('light');
+
+    Appearance.setColorScheme('dark');
+
+    const setupInitialData = async () => {
+      await invoiceService.initialize()
+    }
+
+    setupInitialData()
 
     const subscription = Appearance.addChangeListener(({ colorScheme }) => {
       console.log('Color scheme changed:', colorScheme);
