@@ -1,33 +1,80 @@
-import { Link } from 'expo-router';
-import React from 'react';
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
-const invoicesData = [
-  { id: '1', number: 'INV-001', amount: '$100' },
-  { id: '2', number: 'INV-002', amount: '$250' },
-  { id: '3', number: 'INV-003', amount: '$75' },
-];
+import invoiceService, { Invoice } from "@/service/invoice.service";
+import { Link } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export const InvoiceList = () => {
-  const renderItem = ({ item }) => (
-    <TouchableOpacity style={styles.listItem} onPress={() => console.log(`Viewing invoice ${item.id}`)}>
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadInvoices = async () => {
+      try {
+        const fetchedInvoices = await invoiceService.getInvoices();
+        setInvoices(fetchedInvoices);
+      } catch (err: any) {
+        setError(err.message || "Failed to load invoices");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadInvoices();
+  }, []);
+
+  const renderItem = ({ item }: { item: Invoice }) => (
+    <TouchableOpacity
+      style={styles.listItem}
+      onPress={() => console.log(`Viewing invoice ${item.id}`)}
+    >
       <Link href={`/invoices/${item.id}`}>
-        <Text>{item.number} - {item.amount}</Text>
+        <Text>
+          {item.id} - {item.clientName} - {item.total}
+        </Text>
       </Link>
     </TouchableOpacity>
   );
 
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <Text>Loading invoices...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.error}>Error: {error}</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Invoices</Text>
-      <FlatList
-        data={invoicesData}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id}
-      />
+      {invoices.length > 0 ? (
+        <FlatList
+          data={invoices}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id}
+          removeClippedSubviews={true}
+          initialNumToRender={10}
+        />
+      ) : (
+        <Text>No invoices found.</Text>
+      )}
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -36,12 +83,15 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 16,
   },
   listItem: {
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: "#eee",
+  },
+  error: {
+    color: "red",
   },
 });
