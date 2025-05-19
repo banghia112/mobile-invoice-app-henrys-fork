@@ -1,8 +1,6 @@
-import { InvoiceList } from '@/screens/InvoiceList/InvoiceList';
-import React from 'react';
+import { InvoiceList } from "@/components/InvoiceList/InvoiceList";
+import React from "react";
 
 export default function InvoiceListScreen() {
-  return (
-    <InvoiceList />
-  );
+  return <InvoiceList />;
 }

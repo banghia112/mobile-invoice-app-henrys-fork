@@ -1,7 +1,5 @@
-import { Home } from '@/screens/Home/Home';
+import { InvoiceList } from "@/components/InvoiceList/InvoiceList";
 
 export default function HomeScreen() {
-  return (
-    <Home />
-  );
+  return <InvoiceList />;
 }

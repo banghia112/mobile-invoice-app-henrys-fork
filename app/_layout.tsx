@@ -8,15 +8,18 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 
+import { CustomHeader } from "@/components/CustomHeader";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import invoiceService from "@/service/invoice.service";
 import { useEffect } from "react";
-import { Appearance } from "react-native";
+import { Appearance, SafeAreaView } from "react-native";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [loaded] = useFonts({
-    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
+    SpartanBold: require("../assets/fonts/LeagueSpartan-Bold.ttf"),
+    SpartanMedium: require("../assets/fonts/LeagueSpartan-Medium.ttf"),
+    SpartanRegular: require("../assets/fonts/LeagueSpartan-Regular.ttf"),
   });
 
   useEffect(() => {
@@ -41,14 +44,22 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="invoices" options={{ headerShown: false }} />
-        <Stack.Screen name="invoices/:id" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <SafeAreaView style={{ flex: 1 }}>
+      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+        <Stack
+          screenOptions={{
+            header: () => <CustomHeader colorScheme={colorScheme} />,
+            title: "",
+          }}
+        >
+          <Stack.Screen name="index" />
+          <Stack.Screen name="invoices" />
+          <Stack.Screen name="invoices/new" />
+          <Stack.Screen name="invoices/:id" />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </SafeAreaView>
   );
 }
