@@ -6,13 +6,13 @@ import {
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
+import { Appearance, SafeAreaView, StyleSheet } from "react-native";
 import "react-native-reanimated";
 
 import { CustomHeader } from "@/components/CustomHeader";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import invoiceService from "@/service/invoice.service";
-import { useEffect } from "react";
-import { Appearance, SafeAreaView } from "react-native";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -24,11 +24,9 @@ export default function RootLayout() {
 
   useEffect(() => {
     Appearance.setColorScheme("light");
-
     const setupInitialData = async () => {
       await invoiceService.initialize();
     };
-
     setupInitialData();
 
     const subscription = Appearance.addChangeListener(({ colorScheme }) => {
@@ -39,12 +37,11 @@ export default function RootLayout() {
   }, []);
 
   if (!loaded) {
-    // Async font loading only occurs in development.
     return null;
   }
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView style={styles.safeArea}>
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
         <Stack
           screenOptions={{
@@ -64,3 +61,9 @@ export default function RootLayout() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
+});

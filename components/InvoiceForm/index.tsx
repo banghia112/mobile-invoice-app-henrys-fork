@@ -4,7 +4,7 @@ import invoiceService, { Invoice, Item } from "@/service/invoice.service"; // Im
 import { formatDateForSave } from "@/utils/formatter.utils";
 import { router } from "expo-router";
 import { FieldArray, Formik, FormikProps } from "formik";
-import React from "react";
+import React, { useCallback } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import * as Yup from "yup";
 import { Button } from "../Button";
@@ -106,26 +106,32 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
     items: isEdit ? initialInvoice?.items || [initialItem] : [initialItem],
   };
 
-  const handleDiscard = async () => {
-    if (isEdit && initialInvoice.id) {
+  const handleDiscard = useCallback(async () => {
+    if (isEdit && initialInvoice?.id) {
       await invoiceService.deleteInvoice(initialInvoice.id);
     }
     router.back();
-  };
+  }, [isEdit, initialInvoice?.id]);
 
-  const handleSave = async (invoiceData: Omit<Invoice, "status" | "id">) => {
-    const invoice: Omit<Invoice, "id"> = { ...invoiceData, status: "pending" };
+  const handleSave = useCallback(
+    async (invoiceData: Omit<Invoice, "status" | "id">) => {
+      const invoice: Omit<Invoice, "id"> = {
+        ...invoiceData,
+        status: "pending",
+      };
 
-    if (isEdit) {
-      const updatedInvoice = { ...invoice, id: initialInvoice.id };
-      await invoiceService.updateInvoice(initialInvoice.id, updatedInvoice);
-    } else {
-      await invoiceService.addInvoice(invoice);
-    }
-    router.back();
-  };
+      if (isEdit && initialInvoice?.id) {
+        const updatedInvoice = { ...invoice, id: initialInvoice.id };
+        await invoiceService.updateInvoice(initialInvoice.id, updatedInvoice);
+      } else {
+        await invoiceService.addInvoice(invoice);
+      }
+      router.back();
+    },
+    [isEdit, initialInvoice?.id]
+  );
 
-  const handleSaveDraft = async (values: FormValues) => {
+  const handleSaveDraft = useCallback(async (values: FormValues) => {
     const paymentDueDate = new Date(values.invoiceDate);
     if (paymentDueDate && values.paymentTerm !== null) {
       paymentDueDate.setDate(paymentDueDate.getDate() + values.paymentTerm);
@@ -152,76 +158,75 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
         ? formatDateForSave(values.invoiceDate)
         : "",
       status: "draft",
-    };
-
-    if (values.items.length) {
-      invoiceData.items = values.items.map((item) => ({
+      items: values.items.map((item) => ({
         ...item,
         total: item.quantity * item.price,
-      }));
-
-      invoiceData.total = values.items.reduce(
+      })),
+      total: values.items.reduce(
         (sum, item) => sum + item.quantity * item.price,
         0
-      );
-    }
+      ),
+    };
 
     await invoiceService.addDraftInvoice(invoiceData);
-
     router.back();
-  };
+  }, []);
+
+  const handleSubmit = useCallback(
+    (values: FormValues) => {
+      const paymentDueDate = new Date(values.invoiceDate);
+      if (values.paymentTerm !== null) {
+        paymentDueDate.setDate(paymentDueDate.getDate() + values.paymentTerm);
+      }
+      const invoiceData: Omit<Invoice, "status" | "id"> = {
+        description: values.projectDescription,
+        paymentTerms: values.paymentTerm!,
+        clientName: values.billToClientName,
+        clientEmail: values.billToClientEmail,
+        senderAddress: {
+          street: values.billFromStreet,
+          city: values.billFromCity,
+          postCode: values.billFromPostcode,
+          country: values.billFromCountry,
+        },
+        clientAddress: {
+          street: values.billToStreet,
+          city: values.billToCity,
+          postCode: values.billToPostcode,
+          country: values.billToCountry,
+        },
+        items: values.items.map((item) => ({
+          ...item,
+          total: item.quantity * item.price,
+        })),
+        total: values.items.reduce(
+          (sum, item) => sum + item.quantity * item.price,
+          0
+        ),
+        paymentDue: formatDateForSave(paymentDueDate),
+        createdAt: formatDateForSave(values.invoiceDate),
+      };
+      handleSave(invoiceData);
+    },
+    [handleSave]
+  );
 
   return (
     <Formik
       initialValues={initialValues}
       validationSchema={validationSchema}
       onSubmit={(values, actions) => {
-        const paymentDueDate = new Date(values.invoiceDate);
-        if (values.paymentTerm !== null) {
-          paymentDueDate.setDate(paymentDueDate.getDate() + values.paymentTerm);
-        }
-        const invoiceData: Omit<Invoice, "status" | "id"> = {
-          description: values.projectDescription,
-          paymentTerms: values.paymentTerm!,
-          clientName: values.billToClientName,
-          clientEmail: values.billToClientEmail,
-          senderAddress: {
-            street: values.billFromStreet,
-            city: values.billFromCity,
-            postCode: values.billFromPostcode,
-            country: values.billFromCountry,
-          },
-          clientAddress: {
-            street: values.billToStreet,
-            city: values.billToCity,
-            postCode: values.billToPostcode,
-            country: values.billToCountry,
-          },
-          items: values.items.map((item) => ({
-            ...item,
-            total: item.quantity * item.price,
-          })),
-          total: values.items.reduce(
-            (sum, item) => sum + item.quantity * item.price,
-            0
-          ),
-          paymentDue: formatDateForSave(paymentDueDate),
-          createdAt: formatDateForSave(values.invoiceDate),
-        };
-        handleSave(invoiceData);
+        handleSubmit(values);
         actions.setSubmitting(false);
       }}
     >
       {(formikProps: FormikProps<FormValues>) => (
         <ScrollView style={styles.container}>
-          <View style={{ padding: 24 }}>
-            <TypoGraphy variant="h1">
+          <View style={styles.formContent}>
+            <TypoGraphy variant="h1" style={styles.formTitle}>
               {type === "new" ? "New Invoice" : "Edit Invoice"}
             </TypoGraphy>
-            <TypoGraphy
-              variant="h3"
-              style={{ color: colors.purple[100], marginBottom: 8 }}
-            >
+            <TypoGraphy variant="h3" style={styles.billFromTitle}>
               Bill From
             </TypoGraphy>
             <Input
@@ -235,9 +240,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                   : ""
               }
             />
-            <View
-              style={{ flexDirection: "row", alignItems: "center", gap: 16 }}
-            >
+            <View style={styles.row}>
               <Input
                 label="City"
                 value={formikProps.values.billFromCity}
@@ -273,10 +276,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
               }
             />
 
-            <TypoGraphy
-              variant="h3"
-              style={{ color: colors.purple[100], marginBottom: 8 }}
-            >
+            <TypoGraphy variant="h3" style={styles.billToTitle}>
               Bill To
             </TypoGraphy>
             <Input
@@ -312,9 +312,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                   : ""
               }
             />
-            <View
-              style={{ flexDirection: "row", alignItems: "center", gap: 16 }}
-            >
+            <View style={styles.row}>
               <Input
                 label="City"
                 value={formikProps.values.billToCity}
@@ -379,12 +377,14 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
               }
             />
 
-            <TypoGraphy variant="h1">Item List</TypoGraphy>
+            <TypoGraphy variant="h1" style={styles.itemListTitle}>
+              Item List
+            </TypoGraphy>
             <FieldArray name="items">
               {(arrayHelpers) => (
                 <View>
                   {formikProps.values.items.map((item, index) => (
-                    <View key={index}>
+                    <View key={index} style={styles.itemContainer}>
                       <Input
                         label="Item Name"
                         value={formikProps.values.items[index].name}
@@ -399,14 +399,9 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                             : ""
                         }
                       />
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: 8,
-                        }}
-                      >
+                      <View style={styles.itemDetailsRow}>
                         <Input
+                          style={styles.qtyInput}
                           label="Qty"
                           value={formikProps.values.items[
                             index
@@ -427,6 +422,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                           }
                         />
                         <Input
+                          style={styles.priceInput}
                           label="Price"
                           value={formikProps.values.items[
                             index
@@ -447,6 +443,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                           }
                         />
                         <Input
+                          style={styles.totalInput}
                           label="Total"
                           value={(
                             formikProps.values.items[index].quantity *
@@ -465,13 +462,11 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                     variant="secondary"
                     onPress={() => arrayHelpers.push(initialItem)}
                     fullWidth
-                    containerStyle={{ backgroundColor: colors.black[200] }}
+                    containerStyle={styles.addItemButtonContainer}
                   >
-                    <View
-                      style={{ flexDirection: "row", alignItems: "center" }}
-                    >
+                    <View style={styles.addItemButtonContent}>
                       <IconPlus />
-                      <TypoGraphy style={{ marginLeft: 8 }} variant="h2">
+                      <TypoGraphy style={styles.addItemButtonText} variant="h2">
                         Add New Item
                       </TypoGraphy>
                     </View>
@@ -481,28 +476,13 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
             </FieldArray>
           </View>
 
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 8,
-              paddingVertical: 12,
-              paddingHorizontal: 24,
-              justifyContent: "center",
-              flex: 1,
-              backgroundColor: colors.black[200],
-              flexWrap: "wrap",
-            }}
-          >
+          <View style={styles.buttonGroup}>
             {isEdit ? (
               <>
                 <Button
                   variant="secondary"
                   onPress={handleDiscard}
-                  containerStyle={{
-                    backgroundColor: colors.grey[300],
-                    minWidth: 70,
-                  }}
+                  containerStyle={styles.cancelButtonContainer}
                 >
                   <TypoGraphy variant="h2">Cancel</TypoGraphy>
                 </Button>
@@ -511,7 +491,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                   variant="primary"
                   onPress={formikProps.handleSubmit}
                   disabled={formikProps.isSubmitting}
-                  containerStyle={{ width: 120 }}
+                  containerStyle={styles.saveChangesButtonContainer}
                 >
                   <TypoGraphy variant="h2">Save changes</TypoGraphy>
                 </Button>
@@ -521,10 +501,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 <Button
                   variant="secondary"
                   onPress={handleDiscard}
-                  containerStyle={{
-                    backgroundColor: colors.grey[300],
-                    minWidth: 70,
-                  }}
+                  containerStyle={styles.discardButtonContainer}
                 >
                   <TypoGraphy variant="h2">Discard</TypoGraphy>
                 </Button>
@@ -533,10 +510,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                   onPress={() => {
                     handleSaveDraft(formikProps.values);
                   }}
-                  containerStyle={{
-                    backgroundColor: colors.grey[200],
-                    width: 120,
-                  }}
+                  containerStyle={styles.saveDraftButtonContainer}
                 >
                   <TypoGraphy variant="h2">Save as Draft</TypoGraphy>
                 </Button>
@@ -544,7 +518,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                   variant="primary"
                   onPress={formikProps.handleSubmit}
                   disabled={formikProps.isSubmitting}
-                  containerStyle={{ width: 120 }}
+                  containerStyle={styles.saveAndSendButtonContainer}
                 >
                   <TypoGraphy variant="h2">Save & Send</TypoGraphy>
                 </Button>
@@ -561,5 +535,86 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.black[100],
   },
-  // ... other styles
+  formContent: {
+    padding: 24,
+  },
+  formTitle: {
+    marginBottom: 16,
+  },
+  billFromTitle: {
+    color: colors.purple[100],
+    marginBottom: 8,
+    marginTop: 16,
+  },
+  billToTitle: {
+    color: colors.purple[100],
+    marginBottom: 8,
+    marginTop: 24,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+  itemListTitle: {
+    marginTop: 24,
+    marginBottom: 16,
+  },
+  itemContainer: {
+    marginBottom: 16,
+  },
+  itemDetailsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  qtyInput: {
+    flex: 1,
+  },
+  priceInput: {
+    flex: 1,
+  },
+  totalInput: {
+    flex: 1,
+  },
+  addItemButtonContainer: {
+    backgroundColor: colors.black[200],
+    marginTop: 16,
+  },
+  addItemButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addItemButtonText: {
+    marginLeft: 8,
+  },
+  buttonGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    justifyContent: "center",
+    flexWrap: "wrap",
+    backgroundColor: colors.black[200],
+  },
+  cancelButtonContainer: {
+    backgroundColor: colors.grey[300],
+    minWidth: 120,
+  },
+  saveChangesButtonContainer: {
+    width: 120,
+  },
+  discardButtonContainer: {
+    backgroundColor: colors.grey[300],
+    minWidth: 70,
+  },
+  saveDraftButtonContainer: {
+    backgroundColor: colors.grey[200],
+    width: 120,
+  },
+  saveAndSendButtonContainer: {
+    width: 120,
+  },
 });

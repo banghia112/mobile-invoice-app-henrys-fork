@@ -1,6 +1,6 @@
 import { IconArrowDown } from "@/assets/svg";
 import { colors } from "@/constants/Colors";
-import { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { FlatList, Modal, Pressable, StyleSheet, View } from "react-native";
 import { TypoGraphy } from "../TypoGraphy";
 
@@ -26,51 +26,43 @@ export const Selector = <T,>({
 }: SelectorProps<T>) => {
   const [isModalVisible, setIsModalVisible] = useState(false);
 
-  const handleSelect = (item: SelectorOption<T>) => {
-    onSelect(item.value);
-    setIsModalVisible(false);
-  };
-
-  const getItemLabel = (item: SelectorOption<T>): string => {
-    return item.label;
-  };
-
-  const renderItem = ({
-    item,
-    index,
-  }: {
-    item: SelectorOption<T>;
-    index: number;
-  }) => {
-    const onPress = () => {
+  const handleSelect = useCallback(
+    (item: SelectorOption<T>) => {
       onSelect(item.value);
       setIsModalVisible(false);
-    };
-    return (
-      <Pressable
-        style={{ padding: 12, borderColor: "white", borderWidth: 1 }}
-        onPress={onPress}
-      >
-        <TypoGraphy variant="h3">{item.label}</TypoGraphy>
+    },
+    [onSelect]
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: SelectorOption<T> }) => (
+      <Pressable style={styles.option} onPress={() => handleSelect(item)}>
+        <TypoGraphy variant="h3" style={styles.optionText}>
+          {item.label}
+        </TypoGraphy>
       </Pressable>
-    );
-  };
+    ),
+    [handleSelect]
+  );
 
   const selectedLabel = useMemo(() => {
     return options.find((opt) => opt.value === selectedValue)?.label ?? "";
-  }, [selectedValue]);
+  }, [options, selectedValue]);
+
+  const toggleModal = useCallback(() => {
+    setIsModalVisible((prev) => !prev);
+  }, []);
 
   return (
     <View style={styles.selectorContainer}>
-      <TypoGraphy variant="body1" style={{ marginBottom: 8 }}>
+      <TypoGraphy variant="body1" style={styles.selectorLabel}>
         {label}
       </TypoGraphy>
-      <Pressable
-        style={styles.selectorInput}
-        onPress={() => setIsModalVisible(true)}
-      >
-        <TypoGraphy variant="body1">{selectedLabel}</TypoGraphy>
-        <IconArrowDown />
+      <Pressable style={styles.selectorInput} onPress={toggleModal}>
+        <TypoGraphy variant="body1" style={styles.selectorText}>
+          {selectedLabel}
+        </TypoGraphy>
+        <IconArrowDown style={styles.icon} />
       </Pressable>
 
       <Modal visible={isModalVisible} transparent animationType="slide">
@@ -81,11 +73,8 @@ export const Selector = <T,>({
               keyExtractor={(item) => `${item.value}`}
               renderItem={renderItem}
             />
-            <Pressable
-              style={styles.closeButton}
-              onPress={() => setIsModalVisible(false)}
-            >
-              <TypoGraphy>Close</TypoGraphy>
+            <Pressable style={styles.closeButton} onPress={toggleModal}>
+              <TypoGraphy style={styles.closeButtonText}>Close</TypoGraphy>
             </Pressable>
           </View>
         </View>
@@ -95,38 +84,27 @@ export const Selector = <T,>({
 };
 
 const styles = StyleSheet.create({
-  label: {
-    color: "#CBD5E0",
-    marginBottom: 5,
-  },
-  sectionTitle: {
-    color: "#F0F4F8",
-    fontSize: 18,
-    fontWeight: "bold",
-    marginTop: 20,
-    marginBottom: 10,
-  },
   selectorContainer: {
     marginBottom: 16,
   },
   selectorLabel: {
-    color: "#CBD5E0",
-    marginBottom: 5,
+    color: colors.grey[300],
+    marginBottom: 8,
   },
   selectorInput: {
     backgroundColor: colors.black[200],
-    color: "#CBD5E0",
     padding: 16,
-    borderRadius: 5,
+    borderRadius: 8,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
   selectorText: {
-    color: "#CBD5E0",
+    color: colors.white[100],
   },
   icon: {
     marginLeft: 10,
+    color: colors.white[100],
   },
   modalOverlay: {
     flex: 1,
@@ -134,28 +112,28 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalContent: {
-    backgroundColor: "#263238",
+    backgroundColor: colors.black[100],
     padding: 20,
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
   },
   option: {
-    paddingVertical: 15,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#37474F",
+    borderBottomColor: colors.black[300],
   },
   optionText: {
-    color: "#ECEFF1",
+    color: colors.white[100],
   },
   closeButton: {
-    backgroundColor: "#455A64",
-    padding: 15,
-    borderRadius: 5,
+    backgroundColor: colors.purple[200],
+    padding: 16,
+    borderRadius: 8,
     alignItems: "center",
-    marginTop: 10,
+    marginTop: 20,
   },
   closeButtonText: {
-    color: "#ECEFF1",
+    color: colors.white[100],
     fontWeight: "bold",
   },
 });

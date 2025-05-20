@@ -6,41 +6,32 @@ import {
   formatPayment,
 } from "@/utils/formatter.utils";
 import { router } from "expo-router";
-import React from "react";
+import React, { useCallback } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { TypoGraphy } from "../TypoGraphy";
 import { STATUS_TO_COLOR_MAP } from "./invoiceitem.constants";
 
-export const InvoiceItem = (props: Invoice) => {
+interface InvoiceItemProps extends Invoice {}
+
+export const InvoiceItem = (props: InvoiceItemProps) => {
   const { id, clientName, paymentDue, total, status } = props;
-  const onPress = () => {
+
+  const handlePress = useCallback(() => {
     router.push(`/invoices/${id}`);
-  };
+  }, [id]);
 
   const statusColor = STATUS_TO_COLOR_MAP[status];
+
   return (
-    <Pressable onPress={onPress}>
+    <Pressable style={styles.pressable} onPress={handlePress}>
       <View style={styles.container}>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 16,
-          }}
-        >
+        <View style={styles.header}>
           <TypoGraphy variant="body1">
             #<TypoGraphy variant="h3">{id}</TypoGraphy>
           </TypoGraphy>
           <TypoGraphy variant="body1">{clientName}</TypoGraphy>
         </View>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
+        <View style={styles.details}>
           <View>
             <TypoGraphy variant="body2">
               Due {formatDisplayDate(paymentDue)}
@@ -48,23 +39,16 @@ export const InvoiceItem = (props: Invoice) => {
             <TypoGraphy variant="h1">{formatPayment(total)}</TypoGraphy>
           </View>
           <View
-            style={{
-              backgroundColor: statusColor.background,
-              borderRadius: 12,
-              flexDirection: "row",
-              alignItems: "center",
-              padding: 12,
-              width: 100,
-            }}
+            style={[
+              styles.statusBadge,
+              { backgroundColor: statusColor.background },
+            ]}
           >
             <View
-              style={{
-                width: 12,
-                height: 12,
-                borderRadius: 12,
-                backgroundColor: statusColor.indicator,
-                marginRight: 12,
-              }}
+              style={[
+                styles.statusIndicator,
+                { backgroundColor: statusColor.indicator },
+              ]}
             />
             <TypoGraphy variant="h3" style={{ color: statusColor.text }}>
               {capitalizeString(status)}
@@ -77,10 +61,38 @@ export const InvoiceItem = (props: Invoice) => {
 };
 
 const styles = StyleSheet.create({
+  pressable: {
+    borderRadius: 12,
+    overflow: "hidden", // To make sure the borderRadius is respected when pressed
+  },
   container: {
     justifyContent: "space-between",
     padding: 24,
     backgroundColor: colors.black[200],
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  details: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  statusBadge: {
     borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    width: 100,
+  },
+  statusIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 12,
+    backgroundColor: "transparent", // Will be set dynamically
+    marginRight: 12,
   },
 });

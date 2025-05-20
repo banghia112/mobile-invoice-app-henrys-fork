@@ -15,27 +15,23 @@ interface CustomHeaderProps {
   colorScheme: ColorSchemeName;
 }
 
-export const CustomHeader = ({ colorScheme }: CustomHeaderProps) => {
-  const toggleColorScheme = () => {
-    Appearance.setColorScheme(colorScheme === "dark" ? "light" : "dark");
-  };
+const handleToggleColorScheme = (colorScheme: ColorSchemeName) => {
+  Appearance.setColorScheme(colorScheme === "dark" ? "light" : "dark");
+};
 
+export const CustomHeader = ({ colorScheme }: CustomHeaderProps) => {
   return (
     <View style={styles.container}>
-      <View
-        style={{
-          backgroundColor: colors.purple[100],
-          padding: 24,
-          borderTopRightRadius: 16,
-          borderBottomRightRadius: 16,
-        }}
-      >
+      <View style={styles.logoBackground}>
         <Link href="/" style={styles.logoContainer}>
           <LogoIcon width={24} height={24} />
         </Link>
       </View>
 
-      <Pressable style={styles.colorSchemeButton} onPress={toggleColorScheme}>
+      <Pressable
+        style={styles.colorSchemeButton}
+        onPress={() => handleToggleColorScheme(colorScheme)}
+      >
         {colorScheme === "dark" ? (
           <SunIcon color="#fff" fontSize={24} />
         ) : (
@@ -60,12 +56,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     backgroundColor: colors.black[200],
   },
-  logoContainer: {},
-  logo: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
+  logoBackground: {
+    backgroundColor: colors.purple[100],
+    padding: 24,
+    borderTopRightRadius: 16,
+    borderBottomRightRadius: 16,
   },
+  logoContainer: {},
   colorSchemeButton: {
     justifyContent: "flex-end",
     flex: 1,
