@@ -1,252 +1,440 @@
-import { Feather } from "@expo/vector-icons";
+import { IconDelete, IconPlus } from "@/assets/svg";
+import { colors } from "@/constants/Colors";
+import { generateInvoiceId } from "@/helper/invoice.helper";
+import { Invoice, Item } from "@/service/invoice.service"; // Import types
 import DateTimePicker, {
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  FlatList,
-  Modal,
+  Alert,
   Platform,
+  Pressable,
+  ScrollView,
   StyleSheet,
-  Text,
-  TouchableOpacity,
   View,
 } from "react-native";
+import { Button } from "../Button";
+import { Input } from "../Input";
+import { InputDatePicker } from "../Input/InputDatePicker";
+import { Selector } from "../Selector";
+import { TypoGraphy } from "../TypoGraphy";
 
-interface SelectorProps {
-  label: string;
-  options: string[];
-  onSelect: (value: string) => void;
-  selectedValue: string | null;
+interface InvoiceFormProps {
+  type: "new" | "edit";
+  onSave: (
+    invoiceData: Omit<Invoice, "id" | "createdAt" | "paymentDue" | "status">,
+    status: "draft" | "pending"
+  ) => void;
+  initialInvoice?: Invoice;
 }
 
-const Selector: React.FC<SelectorProps> = ({
-  label,
-  options,
-  onSelect,
-  selectedValue,
-}) => {
-  const [isModalVisible, setIsModalVisible] = useState(false);
-
-  const handleSelect = (item: string) => {
-    onSelect(item);
-    setIsModalVisible(false);
-  };
-
-  return (
-    <View style={styles.selectorContainer}>
-      <Text style={styles.selectorLabel}>{label}</Text>
-      <TouchableOpacity
-        style={styles.selectorInput}
-        onPress={() => setIsModalVisible(true)}
-      >
-        <Text style={styles.selectorText}>
-          {selectedValue ? selectedValue : `Select ${label}`}
-        </Text>
-        <Feather
-          name="chevron-down"
-          size={20}
-          color="#CBD5E0"
-          style={styles.icon}
-        />
-      </TouchableOpacity>
-
-      <Modal visible={isModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <FlatList
-              data={options}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.option}
-                  onPress={() => handleSelect(item)}
-                >
-                  <Text style={styles.optionText}>{item}</Text>
-                </TouchableOpacity>
-              )}
-            />
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setIsModalVisible(false)}
-            >
-              <Text style={styles.closeButtonText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    </View>
-  );
+const initialItem: Item = {
+  name: "",
+  quantity: 1,
+  price: 0,
+  total: 0,
 };
 
-interface InvoiceScreenProps {
-  type: "new" | "edit";
-}
-
-export const InvoiceForm: React.FC<InvoiceScreenProps> = ({ type }) => {
-  const [invoiceDate, setInvoiceDate] = useState(new Date());
+export const InvoiceForm: React.FC<InvoiceFormProps> = ({
+  type,
+  onSave,
+  initialInvoice,
+}) => {
+  const isEdit = type === "edit" && initialInvoice;
+  const [invoiceId] = useState<string | undefined>(
+    isEdit ? initialInvoice?.id : generateInvoiceId()
+  );
+  const [createdAt] = useState<Date>(
+    isEdit && initialInvoice?.createdAt
+      ? new Date(initialInvoice.createdAt)
+      : new Date()
+  );
+  const [invoiceDate, setInvoiceDate] = useState<Date>(
+    isEdit && initialInvoice?.createdAt
+      ? new Date(initialInvoice.createdAt)
+      : new Date()
+  );
+  const [paymentTerm, setPaymentTerm] = useState<number | null>(
+    isEdit ? initialInvoice?.paymentTerms : null
+  );
+  const [paymentDue, setPaymentDue] = useState<Date | undefined>(
+    type === "edit" && initialInvoice?.paymentDue
+      ? new Date(initialInvoice.paymentDue)
+      : undefined
+  );
+  const [lineItems, setLineItems] = useState<Array<Item>>(
+    type === "edit" ? initialInvoice?.items || [initialItem] : [initialItem]
+  );
+  const [billFromStreet, setBillFromStreet] = useState<string>(
+    isEdit ? initialInvoice?.senderAddress.street : ""
+  );
+  const [billFromCity, setBillFromCity] = useState<string>(
+    isEdit ? initialInvoice?.senderAddress.city : ""
+  );
+  const [billFromPostcode, setBillFromPostcode] = useState<string>(
+    isEdit ? initialInvoice?.senderAddress.postCode : ""
+  );
+  const [billFromCountry, setBillFromCountry] = useState<string>(
+    isEdit ? initialInvoice?.senderAddress.country : ""
+  );
+  const [billToClientName, setBillToClientName] = useState<string>(
+    isEdit ? initialInvoice?.clientName : ""
+  );
+  const [billToClientEmail, setBillToClientEmail] = useState<string>(
+    isEdit ? initialInvoice?.clientEmail : ""
+  );
+  const [billToStreet, setBillToStreet] = useState<string>(
+    isEdit ? initialInvoice?.clientAddress.street : ""
+  );
+  const [billToCity, setBillToCity] = useState<string>(
+    isEdit ? initialInvoice?.clientAddress.city : ""
+  );
+  const [billToPostcode, setBillToPostcode] = useState<string>(
+    isEdit ? initialInvoice?.clientAddress.postCode : ""
+  );
+  const [billToCountry, setBillToCountry] = useState<string>(
+    isEdit ? initialInvoice?.clientAddress.country : ""
+  );
+  const [projectDescription, setProjectDescription] = useState<string>(
+    isEdit ? initialInvoice?.description : ""
+  );
+  const [total, setTotal] = useState<number>(
+    isEdit ? initialInvoice?.total : 0
+  );
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [paymentTerm, setPaymentTerm] = useState<string | null>(null);
-  const [billingCountry, setBillingCountry] = useState<string | null>(null);
-  const [shippingCountry, setShippingCountry] = useState<string | null>(null);
 
-  const paymentTermOptions = ["Net 15 Days", "Net 30 Days", "Due on Receipt"];
-  const countryOptions = [
-    "United Kingdom",
-    "United States",
-    "Canada",
-    "Australia",
+  const paymentTermOptions = [
+    { label: "Net 1 Day", value: 1 },
+    { label: "Net 7 Days", value: 7 },
+    { label: "Net 15 Days", value: 15 },
+    { label: "Net 30 Days", value: 30 },
   ];
+
+  useEffect(() => {
+    calculateTotal();
+  }, [lineItems]);
+
+  useEffect(() => {
+    calculatePaymentDue();
+  }, [createdAt, paymentTerm]);
 
   const onChangeInvoiceDate = (
     _event: DateTimePickerEvent,
     selectedDate?: Date
   ) => {
     const currentDate = selectedDate || invoiceDate;
-    setShowDatePicker(Platform.OS === "ios"); // Hide picker on iOS once selected
+    setShowDatePicker(Platform.OS === "ios");
     setInvoiceDate(currentDate);
   };
 
-  const showDatepicker = () => {
-    setShowDatePicker(true);
-  };
-
-  const handlePaymentTermSelect = (term: string) => {
+  const handlePaymentTermSelect = (term: number) => {
     setPaymentTerm(term);
-    console.log("Selected Payment Term:", term);
-    // Logic to calculate due date based on the term
   };
 
-  const handleBillingCountrySelect = (country: string) => {
-    setBillingCountry(country);
-    console.log("Billing Country:", country);
+  const calculatePaymentDue = () => {
+    if (createdAt && paymentTerm) {
+      const dueDate = new Date(createdAt);
+      dueDate.setDate(dueDate.getDate() + paymentTerm);
+      setPaymentDue(dueDate);
+    } else {
+      setPaymentDue(undefined);
+    }
   };
 
-  const handleShippingCountrySelect = (country: string) => {
-    setShippingCountry(country);
-    console.log("Shipping Country:", country);
+  const onPressAddLineItem = () => {
+    const newLineItems = [...lineItems];
+    newLineItems.push({ ...initialItem });
+    setLineItems(newLineItems);
+  };
+
+  const onPressDeleteLineItem = (index: number) => {
+    const newLineItems = [...lineItems];
+    newLineItems.splice(index, 1);
+    setLineItems(newLineItems);
+  };
+
+  const handleLineItemChange = (
+    index: number,
+    name: keyof Item,
+    value: string
+  ) => {
+    const newLineItems = lineItems.map((item, i) =>
+      i === index
+        ? {
+            ...item,
+            [name]:
+              name === "quantity" || name === "price"
+                ? parseFloat(value)
+                : value,
+          }
+        : item
+    );
+    setLineItems(newLineItems);
+  };
+
+  const calculateTotal = () => {
+    const newTotal = lineItems.reduce((sum, item) => sum + item.total, 0);
+    setTotal(newTotal);
+  };
+
+  const validateFields = (): boolean => {
+    if (
+      !billFromStreet ||
+      !billFromCity ||
+      !billFromPostcode ||
+      !billFromCountry ||
+      !billToClientName ||
+      !billToClientEmail ||
+      !billToStreet ||
+      !billToCity ||
+      !billToPostcode ||
+      !billToCountry ||
+      paymentTerm === null ||
+      !projectDescription ||
+      lineItems.some(
+        (item) => !item.name || isNaN(item.quantity) || isNaN(item.price)
+      )
+    ) {
+      Alert.alert("Validation Error", "Please fill in all required fields.");
+      return false;
+    }
+    return true;
+  };
+
+  const handleSave = (status: "draft" | "pending") => {
+    const invoiceData: Omit<
+      Invoice,
+      "id" | "createdAt" | "paymentDue" | "status"
+    > = {
+      description: projectDescription,
+      paymentTerms: paymentTerm!,
+      clientName: billToClientName,
+      clientEmail: billToClientEmail,
+      senderAddress: {
+        street: billFromStreet,
+        city: billFromCity,
+        postCode: billFromPostcode,
+        country: billFromCountry,
+      },
+      clientAddress: {
+        street: billToStreet,
+        city: billToCity,
+        postCode: billToPostcode,
+        country: billToCountry,
+      },
+      items: lineItems.map((item) => ({
+        ...item,
+        total: item.quantity * item.price,
+      })),
+      total,
+    };
+
+    if (status === "pending" && !validateFields()) {
+      return;
+    }
+
+    onSave(invoiceData, status);
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>Invoice Date</Text>
-      <TouchableOpacity onPress={showDatepicker} style={styles.input}>
-        <Text>{invoiceDate.toLocaleDateString()}</Text>
-      </TouchableOpacity>
-      {showDatePicker && (
-        <DateTimePicker
-          testID="invoiceDatePicker"
-          value={invoiceDate}
-          mode="date"
-          is24Hour={true}
-          display="default"
-          onChange={onChangeInvoiceDate}
-          c
+    <ScrollView style={styles.container}>
+      <View style={{ padding: 24 }}>
+        <TypoGraphy variant="h1">
+          {type === "new" ? "New Invoice" : "Edit Invoice"}
+        </TypoGraphy>
+        <TypoGraphy
+          variant="h3"
+          style={{ color: colors.purple[100], marginBottom: 8 }}
+        >
+          Bill From
+        </TypoGraphy>
+        <Input
+          label="Street Address"
+          value={billFromStreet}
+          onChangeText={setBillFromStreet}
         />
-      )}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+          <Input
+            label="City"
+            value={billFromCity}
+            onChangeText={setBillFromCity}
+          />
+          <Input
+            label="Postcode"
+            value={billFromPostcode}
+            onChangeText={setBillFromPostcode}
+          />
+        </View>
+        <Input
+          label="Country"
+          value={billFromCountry}
+          onChangeText={setBillFromCountry}
+        />
 
-      <Selector
-        label="Payment Terms"
-        options={paymentTermOptions}
-        onSelect={handlePaymentTermSelect}
-        selectedValue={paymentTerm}
-      />
+        <TypoGraphy
+          variant="h3"
+          style={{ color: colors.purple[100], marginBottom: 8 }}
+        >
+          Bill To
+        </TypoGraphy>
+        <Input
+          label="Client's Name"
+          value={billToClientName}
+          onChangeText={setBillToClientName}
+        />
+        <Input
+          label="Client's Email"
+          value={billToClientEmail}
+          onChangeText={setBillToClientEmail}
+        />
+        <Input
+          label="Street Address"
+          value={billToStreet}
+          onChangeText={setBillToStreet}
+        />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+          <Input label="City" value={billToCity} onChangeText={setBillToCity} />
+          <Input
+            label="Postcode"
+            value={billToPostcode}
+            onChangeText={setBillToPostcode}
+          />
+        </View>
+        <Input
+          label="Country"
+          value={billToCountry}
+          onChangeText={setBillToCountry}
+        />
 
-      {/* Bill From Section */}
-      <Text style={styles.sectionTitle}>Bill From</Text>
-      <Selector
-        label="Country"
-        options={countryOptions}
-        onSelect={handleBillingCountrySelect}
-        selectedValue={billingCountry}
-      />
+        <InputDatePicker
+          label="Invoice Date"
+          value={invoiceDate}
+          onPress={() => setShowDatePicker(!showDatePicker)}
+        />
 
-      <Text style={styles.sectionTitle}>Bill To</Text>
-      <Selector
-        label="Country"
-        options={countryOptions}
-        onSelect={handleShippingCountrySelect}
-        selectedValue={shippingCountry}
-      />
+        {showDatePicker ? (
+          <DateTimePicker
+            testID="invoiceDatePicker"
+            value={invoiceDate}
+            mode="date"
+            is24Hour={true}
+            display="default"
+            onChange={onChangeInvoiceDate}
+          />
+        ) : null}
 
-      {/* ... Item List and other sections ... */}
-    </View>
+        <Selector
+          label="Payment Terms"
+          options={paymentTermOptions}
+          onSelect={handlePaymentTermSelect}
+          selectedValue={paymentTerm}
+          renderItem={(item) => <TypoGraphy>{item.label}</TypoGraphy>}
+          extractValue={(item) => item.value}
+        />
+
+        <Input
+          label="Project Description"
+          value={projectDescription}
+          onChangeText={setProjectDescription}
+        />
+
+        <TypoGraphy variant="h1">Item List</TypoGraphy>
+        {lineItems.map((item, index) => (
+          <View key={`${item.name}-${index}`}>
+            <Input
+              label="Item Name"
+              value={item.name}
+              onChangeText={(text) => handleLineItemChange(index, "name", text)}
+            />
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+            >
+              <Input
+                label="Qty"
+                value={item.quantity.toString()}
+                onChangeText={(text) =>
+                  handleLineItemChange(index, "quantity", text)
+                }
+                keyboardType="numeric"
+              />
+              <Input
+                label="Price"
+                value={item.price.toString()}
+                onChangeText={(text) =>
+                  handleLineItemChange(index, "price", text)
+                }
+                keyboardType="numeric"
+              />
+              <Input
+                label="Total"
+                value={(item.quantity * item.price).toFixed(2)}
+                editable={false}
+              />
+              <Pressable onPress={() => onPressDeleteLineItem(index)}>
+                <IconDelete />
+              </Pressable>
+            </View>
+          </View>
+        ))}
+
+        <Button
+          variant="secondary"
+          onPress={onPressAddLineItem}
+          fullWidth
+          containerStyle={{ backgroundColor: colors.black[200] }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <IconPlus />
+            <TypoGraphy style={{ marginLeft: 8 }} variant="h2">
+              Add New Item
+            </TypoGraphy>
+          </View>
+        </Button>
+      </View>
+
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          paddingVertical: 12,
+          paddingHorizontal: 24,
+          justifyContent: "center",
+          flex: 1,
+          backgroundColor: colors.black[200],
+          flexWrap: "wrap",
+        }}
+      >
+        <Button
+          variant="secondary"
+          onPress={() => handleSave("draft")}
+          containerStyle={{ backgroundColor: colors.grey[300], minWidth: 70 }}
+        >
+          <TypoGraphy variant="h2">Discard</TypoGraphy>
+        </Button>
+        <Button
+          variant="secondary"
+          onPress={() => handleSave("draft")}
+          containerStyle={{ backgroundColor: colors.grey[200], width: 120 }}
+        >
+          <TypoGraphy variant="h2">Save as Draft</TypoGraphy>
+        </Button>
+        <Button
+          variant="primary"
+          onPress={() => handleSave("pending")}
+          containerStyle={{ width: 120 }}
+        >
+          <TypoGraphy variant="h2">Save & Send</TypoGraphy>
+        </Button>
+      </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
-    backgroundColor: "#1E293B",
+    backgroundColor: colors.black[100],
   },
-  label: {
-    color: "#CBD5E0",
-    marginBottom: 5,
-  },
-  input: {
-    backgroundColor: "#334155",
-    color: "#CBD5E0",
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 15,
-  },
-  sectionTitle: {
-    color: "#F0F4F8",
-    fontSize: 18,
-    fontWeight: "bold",
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  selectorContainer: {
-    marginBottom: 15,
-  },
-  selectorLabel: {
-    color: "#CBD5E0",
-    marginBottom: 5,
-  },
-  selectorInput: {
-    backgroundColor: "#334155",
-    color: "#CBD5E0",
-    padding: 10,
-    borderRadius: 5,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  selectorText: {
-    color: "#CBD5E0",
-  },
-  icon: {
-    marginLeft: 10,
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-  },
-  modalContent: {
-    backgroundColor: "#263238",
-    padding: 20,
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
-  },
-  option: {
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "#37474F",
-  },
-  optionText: {
-    color: "#ECEFF1",
-  },
-  closeButton: {
-    backgroundColor: "#455A64",
-    padding: 15,
-    borderRadius: 5,
-    alignItems: "center",
-    marginTop: 10,
-  },
-  closeButtonText: {
-    color: "#ECEFF1",
-    fontWeight: "bold",
-  },
+  // ... other styles
 });
