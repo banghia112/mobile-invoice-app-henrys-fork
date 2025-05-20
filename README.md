@@ -1,50 +1,33 @@
-# Welcome to your Expo app 👋
+# Mobile Invoice App - Henry's Fork
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+This repository contains a mobile invoice application built as a coding challenge. The application aims to demonstrate a structured development approach, from initial project setup to feature implementation and refinement.
 
-## Get started
+---
 
-1. Install dependencies
+## Work Progress
 
-   ```bash
-   npm install
-   ```
+Here's a breakdown of the development journey for this mobile invoice application:
 
-2. Start the app
+### Project Initialization and Core Setup
 
-   ```bash
-   npx expo start
-   ```
+I kicked off the project by initializing it with **React Native Expo**. My immediate choice was **TypeScript**, primarily for its robust **type safety** and the excellent **coding conventions** it encourages. This decision was made early on to ensure a more maintainable and less error-prone codebase from the start.
 
-In the output, you'll find options to open the app in a
+### Navigation and Design System Foundations
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+With the project set up, I then focused on implementing the **basic navigation**. I started with **placeholder screens** to establish the general layout and create a skeletal structure for the app's flow. This allowed me to immediately begin developing **base components** for the **design system**, ensuring consistency and reusability across the application.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### Data Handling with AsyncStorage
 
-## Get a fresh project
+To simulate network requests and handle local data persistence effectively, I chose to implement **AsyncStorage**. Its asynchronous nature made it an ideal candidate to replicate the behavior of fetching and storing data, mirroring how a real-world application would interact with a backend.
 
-When you're ready, run:
+### Visual Consistency: Fonts and Colors
 
-```bash
-npm run reset-project
-```
+Following the design system, I integrated the specified **fonts and colors**. This step was crucial for ensuring the application's visual appeal and maintaining a consistent brand identity throughout all screens and components.
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### Feature Implementation
 
-## Learn more
+With the foundational elements in place, I moved on to implementing the core features of the application. My priority here was to build with a focus on **good structure and maintainable code**. Each feature was developed with future scalability and ease of modification in mind.
 
-To learn more about developing your project with Expo, look at the following resources:
+### Refactoring and Optimization
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Finally, a significant portion of the development cycle was dedicated to **refactoring**. This involved reviewing the entire codebase to ensure everything was "on point" – optimizing performance, enhancing readability, addressing any technical debt, and making sure the application was robust and efficient.
