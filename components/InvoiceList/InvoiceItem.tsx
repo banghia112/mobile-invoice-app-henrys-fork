@@ -2,7 +2,7 @@ import { colors } from "@/constants/Colors";
 import { Invoice } from "@/service/invoice.service";
 import {
   capitalizeString,
-  formatDate,
+  formatDisplayDate,
   formatPayment,
 } from "@/utils/formatter.utils";
 import { router } from "expo-router";
@@ -43,7 +43,7 @@ export const InvoiceItem = (props: Invoice) => {
         >
           <View>
             <TypoGraphy variant="body2">
-              Due {formatDate(paymentDue)}
+              Due {formatDisplayDate(paymentDue)}
             </TypoGraphy>
             <TypoGraphy variant="h1">{formatPayment(total)}</TypoGraphy>
           </View>

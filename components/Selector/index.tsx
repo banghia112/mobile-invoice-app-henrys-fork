@@ -1,35 +1,64 @@
 import { IconArrowDown } from "@/assets/svg";
 import { colors } from "@/constants/Colors";
-import { useState } from "react";
-import {
-  FlatList,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { useMemo, useState } from "react";
+import { FlatList, Modal, Pressable, StyleSheet, View } from "react-native";
 import { TypoGraphy } from "../TypoGraphy";
 
-interface SelectorProps {
+export interface SelectorOption<T> {
   label: string;
-  options: string[];
-  onSelect: (value: string) => void;
-  selectedValue: string | null;
+  value: T;
 }
 
-export const Selector: React.FC<SelectorProps> = ({
+interface SelectorProps<T> {
+  label: string;
+  options: SelectorOption<T>[];
+  onSelect: (value: T) => void;
+  selectedValue: T | null | undefined;
+  extractValue?: (item: SelectorOption<T>) => T;
+}
+
+export const Selector = <T,>({
   label,
   options,
   onSelect,
   selectedValue,
-}) => {
+  extractValue,
+}: SelectorProps<T>) => {
   const [isModalVisible, setIsModalVisible] = useState(false);
 
-  const handleSelect = (item: string) => {
-    onSelect(item);
+  const handleSelect = (item: SelectorOption<T>) => {
+    onSelect(item.value);
     setIsModalVisible(false);
   };
+
+  const getItemLabel = (item: SelectorOption<T>): string => {
+    return item.label;
+  };
+
+  const renderItem = ({
+    item,
+    index,
+  }: {
+    item: SelectorOption<T>;
+    index: number;
+  }) => {
+    const onPress = () => {
+      onSelect(item.value);
+      setIsModalVisible(false);
+    };
+    return (
+      <Pressable
+        style={{ padding: 12, borderColor: "white", borderWidth: 1 }}
+        onPress={onPress}
+      >
+        <TypoGraphy variant="h3">{item.label}</TypoGraphy>
+      </Pressable>
+    );
+  };
+
+  const selectedLabel = useMemo(() => {
+    return options.find((opt) => opt.value === selectedValue)?.label ?? "";
+  }, [selectedValue]);
 
   return (
     <View style={styles.selectorContainer}>
@@ -40,9 +69,7 @@ export const Selector: React.FC<SelectorProps> = ({
         style={styles.selectorInput}
         onPress={() => setIsModalVisible(true)}
       >
-        <TypoGraphy variant="body1">
-          {selectedValue ? selectedValue : `Select ${label}`}
-        </TypoGraphy>
+        <TypoGraphy variant="body1">{selectedLabel}</TypoGraphy>
         <IconArrowDown />
       </Pressable>
 
@@ -51,21 +78,14 @@ export const Selector: React.FC<SelectorProps> = ({
           <View style={styles.modalContent}>
             <FlatList
               data={options}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <Pressable
-                  style={styles.option}
-                  onPress={() => handleSelect(item)}
-                >
-                  <Text style={styles.optionText}>{item}</Text>
-                </Pressable>
-              )}
+              keyExtractor={(item) => `${item.value}`}
+              renderItem={renderItem}
             />
             <Pressable
               style={styles.closeButton}
               onPress={() => setIsModalVisible(false)}
             >
-              <Text style={styles.closeButtonText}>Close</Text>
+              <TypoGraphy>Close</TypoGraphy>
             </Pressable>
           </View>
         </View>

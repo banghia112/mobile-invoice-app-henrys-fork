@@ -16,7 +16,6 @@ interface InputProps extends TextInputProps {
 
 export const Input: React.FC<InputProps> = ({
   label,
-  value,
   onChangeText,
   onBlur,
   error,
@@ -37,7 +36,6 @@ export const Input: React.FC<InputProps> = ({
           error && styles.inputError,
           editable ? {} : { backgroundColor: colors.black[100] },
         ]}
-        value={value}
         onChangeText={onChangeText}
         onBlur={onBlur}
         keyboardType={keyboardType}

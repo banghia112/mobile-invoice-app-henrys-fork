@@ -1,8 +1,8 @@
 import { IconArrowDown, IconListEmpty, IconPlus } from "@/assets/svg";
 import { colors } from "@/constants/Colors";
 import invoiceService, { Invoice } from "@/service/invoice.service";
-import { router } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   FlatList,
   Pressable,
@@ -29,14 +29,16 @@ export const InvoiceList = ({}: InvoiceListProps) => {
       setInvoices(fetchedInvoices);
     } catch (err: any) {
       setError(err.message || "Failed to load invoices");
-    } finally {
-      setLoading(false);
     }
+
+    setLoading(false);
   };
 
-  useEffect(() => {
-    loadInvoices();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadInvoices();
+    }, [])
+  );
 
   const renderItem = ({ item }: { item: Invoice }) => <InvoiceItem {...item} />;
 

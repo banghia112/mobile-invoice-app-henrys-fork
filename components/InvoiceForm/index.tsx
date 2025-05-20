@@ -1,19 +1,12 @@
 import { IconDelete, IconPlus } from "@/assets/svg";
 import { colors } from "@/constants/Colors";
-import { generateInvoiceId } from "@/helper/invoice.helper";
-import { Invoice, Item } from "@/service/invoice.service"; // Import types
-import DateTimePicker, {
-  DateTimePickerEvent,
-} from "@react-native-community/datetimepicker";
-import React, { useEffect, useState } from "react";
-import {
-  Alert,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from "react-native";
+import invoiceService, { Invoice, Item } from "@/service/invoice.service"; // Import types
+import { formatDateForSave } from "@/utils/formatter.utils";
+import { router } from "expo-router";
+import { FieldArray, Formik, FormikProps } from "formik";
+import React from "react";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import * as Yup from "yup";
 import { Button } from "../Button";
 import { Input } from "../Input";
 import { InputDatePicker } from "../Input/InputDatePicker";
@@ -22,11 +15,24 @@ import { TypoGraphy } from "../TypoGraphy";
 
 interface InvoiceFormProps {
   type: "new" | "edit";
-  onSave: (
-    invoiceData: Omit<Invoice, "id" | "createdAt" | "paymentDue" | "status">,
-    status: "draft" | "pending"
-  ) => void;
   initialInvoice?: Invoice;
+}
+
+interface FormValues {
+  billFromStreet: string;
+  billFromCity: string;
+  billFromPostcode: string;
+  billFromCountry: string;
+  billToClientName: string;
+  billToClientEmail: string;
+  billToStreet: string;
+  billToCity: string;
+  billToPostcode: string;
+  billToCountry: string;
+  invoiceDate: Date;
+  paymentTerm: number | null;
+  projectDescription: string;
+  items: Item[];
 }
 
 const initialItem: Item = {
@@ -36,399 +42,518 @@ const initialItem: Item = {
   total: 0,
 };
 
+const paymentTermOptions = [
+  { label: "Net 1 Day", value: 1 },
+  { label: "Net 7 Days", value: 7 },
+  { label: "Net 15 Days", value: 15 },
+  { label: "Net 30 Days", value: 30 },
+];
+
+const validationSchema = Yup.object().shape({
+  billFromStreet: Yup.string().required("Street Address is required"),
+  billFromCity: Yup.string().required("City is required"),
+  billFromPostcode: Yup.string().required("Postcode is required"),
+  billFromCountry: Yup.string().required("Country is required"),
+  billToClientName: Yup.string().required("Client's Name is required"),
+  billToClientEmail: Yup.string()
+    .email("Invalid email")
+    .required("Client's Email is required"),
+  billToStreet: Yup.string().required("Street Address is required"),
+  billToCity: Yup.string().required("City is required"),
+  billToPostcode: Yup.string().required("Postcode is required"),
+  billToCountry: Yup.string().required("Country is required"),
+  invoiceDate: Yup.date().required("Invoice Date is required"),
+  paymentTerm: Yup.number().nullable().required("Payment Terms is required"),
+  projectDescription: Yup.string().required("Project Description is required"),
+  items: Yup.array()
+    .of(
+      Yup.object().shape({
+        name: Yup.string().required("Item Name is required"),
+        quantity: Yup.number()
+          .min(1, "Quantity must be at least 1")
+          .required("Quantity is required"),
+        price: Yup.number()
+          .min(0, "Price cannot be negative")
+          .required("Price is required"),
+        total: Yup.number(),
+      })
+    )
+    .min(1, "At least one item is required"),
+});
+
 export const InvoiceForm: React.FC<InvoiceFormProps> = ({
   type,
-  onSave,
   initialInvoice,
 }) => {
   const isEdit = type === "edit" && initialInvoice;
-  const [invoiceId] = useState<string | undefined>(
-    isEdit ? initialInvoice?.id : generateInvoiceId()
-  );
-  const [createdAt] = useState<Date>(
-    isEdit && initialInvoice?.createdAt
-      ? new Date(initialInvoice.createdAt)
-      : new Date()
-  );
-  const [invoiceDate, setInvoiceDate] = useState<Date>(
-    isEdit && initialInvoice?.createdAt
-      ? new Date(initialInvoice.createdAt)
-      : new Date()
-  );
-  const [paymentTerm, setPaymentTerm] = useState<number | null>(
-    isEdit ? initialInvoice?.paymentTerms : null
-  );
-  const [paymentDue, setPaymentDue] = useState<Date | undefined>(
-    type === "edit" && initialInvoice?.paymentDue
-      ? new Date(initialInvoice.paymentDue)
-      : undefined
-  );
-  const [lineItems, setLineItems] = useState<Array<Item>>(
-    type === "edit" ? initialInvoice?.items || [initialItem] : [initialItem]
-  );
-  const [billFromStreet, setBillFromStreet] = useState<string>(
-    isEdit ? initialInvoice?.senderAddress.street : ""
-  );
-  const [billFromCity, setBillFromCity] = useState<string>(
-    isEdit ? initialInvoice?.senderAddress.city : ""
-  );
-  const [billFromPostcode, setBillFromPostcode] = useState<string>(
-    isEdit ? initialInvoice?.senderAddress.postCode : ""
-  );
-  const [billFromCountry, setBillFromCountry] = useState<string>(
-    isEdit ? initialInvoice?.senderAddress.country : ""
-  );
-  const [billToClientName, setBillToClientName] = useState<string>(
-    isEdit ? initialInvoice?.clientName : ""
-  );
-  const [billToClientEmail, setBillToClientEmail] = useState<string>(
-    isEdit ? initialInvoice?.clientEmail : ""
-  );
-  const [billToStreet, setBillToStreet] = useState<string>(
-    isEdit ? initialInvoice?.clientAddress.street : ""
-  );
-  const [billToCity, setBillToCity] = useState<string>(
-    isEdit ? initialInvoice?.clientAddress.city : ""
-  );
-  const [billToPostcode, setBillToPostcode] = useState<string>(
-    isEdit ? initialInvoice?.clientAddress.postCode : ""
-  );
-  const [billToCountry, setBillToCountry] = useState<string>(
-    isEdit ? initialInvoice?.clientAddress.country : ""
-  );
-  const [projectDescription, setProjectDescription] = useState<string>(
-    isEdit ? initialInvoice?.description : ""
-  );
-  const [total, setTotal] = useState<number>(
-    isEdit ? initialInvoice?.total : 0
-  );
-  const [showDatePicker, setShowDatePicker] = useState(false);
-
-  const paymentTermOptions = [
-    { label: "Net 1 Day", value: 1 },
-    { label: "Net 7 Days", value: 7 },
-    { label: "Net 15 Days", value: 15 },
-    { label: "Net 30 Days", value: 30 },
-  ];
-
-  useEffect(() => {
-    calculateTotal();
-  }, [lineItems]);
-
-  useEffect(() => {
-    calculatePaymentDue();
-  }, [createdAt, paymentTerm]);
-
-  const onChangeInvoiceDate = (
-    _event: DateTimePickerEvent,
-    selectedDate?: Date
-  ) => {
-    const currentDate = selectedDate || invoiceDate;
-    setShowDatePicker(Platform.OS === "ios");
-    setInvoiceDate(currentDate);
+  const initialValues: FormValues = {
+    billFromStreet: isEdit ? initialInvoice?.senderAddress.street : "",
+    billFromCity: isEdit ? initialInvoice?.senderAddress.city : "",
+    billFromPostcode: isEdit ? initialInvoice?.senderAddress.postCode : "",
+    billFromCountry: isEdit ? initialInvoice?.senderAddress.country : "",
+    billToClientName: isEdit ? initialInvoice?.clientName : "",
+    billToClientEmail: isEdit ? initialInvoice?.clientEmail : "",
+    billToStreet: isEdit ? initialInvoice?.clientAddress.street : "",
+    billToCity: isEdit ? initialInvoice?.clientAddress.city : "",
+    billToPostcode: isEdit ? initialInvoice?.clientAddress.postCode : "",
+    billToCountry: isEdit ? initialInvoice?.clientAddress.country : "",
+    invoiceDate:
+      isEdit && initialInvoice?.createdAt
+        ? new Date(initialInvoice.createdAt)
+        : new Date(),
+    paymentTerm: isEdit ? initialInvoice?.paymentTerms : null,
+    projectDescription: isEdit ? initialInvoice?.description : "",
+    items: isEdit ? initialInvoice?.items || [initialItem] : [initialItem],
   };
 
-  const handlePaymentTermSelect = (term: number) => {
-    setPaymentTerm(term);
+  const handleDiscard = async () => {
+    if (isEdit && initialInvoice.id) {
+      await invoiceService.deleteInvoice(initialInvoice.id);
+    }
+    router.back();
   };
 
-  const calculatePaymentDue = () => {
-    if (createdAt && paymentTerm) {
-      const dueDate = new Date(createdAt);
-      dueDate.setDate(dueDate.getDate() + paymentTerm);
-      setPaymentDue(dueDate);
+  const handleSave = async (invoiceData: Omit<Invoice, "status" | "id">) => {
+    const invoice: Omit<Invoice, "id"> = { ...invoiceData, status: "pending" };
+
+    if (isEdit) {
+      const updatedInvoice = { ...invoice, id: initialInvoice.id };
+      await invoiceService.updateInvoice(initialInvoice.id, updatedInvoice);
     } else {
-      setPaymentDue(undefined);
+      await invoiceService.addInvoice(invoice);
     }
+    router.back();
   };
 
-  const onPressAddLineItem = () => {
-    const newLineItems = [...lineItems];
-    newLineItems.push({ ...initialItem });
-    setLineItems(newLineItems);
-  };
-
-  const onPressDeleteLineItem = (index: number) => {
-    const newLineItems = [...lineItems];
-    newLineItems.splice(index, 1);
-    setLineItems(newLineItems);
-  };
-
-  const handleLineItemChange = (
-    index: number,
-    name: keyof Item,
-    value: string
-  ) => {
-    const newLineItems = lineItems.map((item, i) =>
-      i === index
-        ? {
-            ...item,
-            [name]:
-              name === "quantity" || name === "price"
-                ? parseFloat(value)
-                : value,
-          }
-        : item
-    );
-    setLineItems(newLineItems);
-  };
-
-  const calculateTotal = () => {
-    const newTotal = lineItems.reduce((sum, item) => sum + item.total, 0);
-    setTotal(newTotal);
-  };
-
-  const validateFields = (): boolean => {
-    if (
-      !billFromStreet ||
-      !billFromCity ||
-      !billFromPostcode ||
-      !billFromCountry ||
-      !billToClientName ||
-      !billToClientEmail ||
-      !billToStreet ||
-      !billToCity ||
-      !billToPostcode ||
-      !billToCountry ||
-      paymentTerm === null ||
-      !projectDescription ||
-      lineItems.some(
-        (item) => !item.name || isNaN(item.quantity) || isNaN(item.price)
-      )
-    ) {
-      Alert.alert("Validation Error", "Please fill in all required fields.");
-      return false;
+  const handleSaveDraft = async (values: FormValues) => {
+    const paymentDueDate = new Date(values.invoiceDate);
+    if (paymentDueDate && values.paymentTerm !== null) {
+      paymentDueDate.setDate(paymentDueDate.getDate() + values.paymentTerm);
     }
-    return true;
-  };
-
-  const handleSave = (status: "draft" | "pending") => {
-    const invoiceData: Omit<
-      Invoice,
-      "id" | "createdAt" | "paymentDue" | "status"
-    > = {
-      description: projectDescription,
-      paymentTerms: paymentTerm!,
-      clientName: billToClientName,
-      clientEmail: billToClientEmail,
+    const invoiceData: Partial<Omit<Invoice, "id">> = {
+      description: values.projectDescription ?? "",
+      paymentTerms: values.paymentTerm! ?? "",
+      clientName: values.billToClientName ?? "",
+      clientEmail: values.billToClientEmail ?? "",
       senderAddress: {
-        street: billFromStreet,
-        city: billFromCity,
-        postCode: billFromPostcode,
-        country: billFromCountry,
+        street: values.billFromStreet ?? "",
+        city: values.billFromCity ?? "",
+        postCode: values.billFromPostcode ?? "",
+        country: values.billFromCountry ?? "",
       },
       clientAddress: {
-        street: billToStreet,
-        city: billToCity,
-        postCode: billToPostcode,
-        country: billToCountry,
+        street: values.billToStreet ?? "",
+        city: values.billToCity ?? "",
+        postCode: values.billToPostcode ?? "",
+        country: values.billToCountry ?? "",
       },
-      items: lineItems.map((item) => ({
-        ...item,
-        total: item.quantity * item.price,
-      })),
-      total,
+      paymentDue: values.invoiceDate ? formatDateForSave(paymentDueDate) : "",
+      createdAt: values.invoiceDate
+        ? formatDateForSave(values.invoiceDate)
+        : "",
+      status: "draft",
     };
 
-    if (status === "pending" && !validateFields()) {
-      return;
+    if (values.items.length) {
+      invoiceData.items = values.items.map((item) => ({
+        ...item,
+        total: item.quantity * item.price,
+      }));
+
+      invoiceData.total = values.items.reduce(
+        (sum, item) => sum + item.quantity * item.price,
+        0
+      );
     }
 
-    onSave(invoiceData, status);
+    await invoiceService.addDraftInvoice(invoiceData);
+
+    router.back();
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={{ padding: 24 }}>
-        <TypoGraphy variant="h1">
-          {type === "new" ? "New Invoice" : "Edit Invoice"}
-        </TypoGraphy>
-        <TypoGraphy
-          variant="h3"
-          style={{ color: colors.purple[100], marginBottom: 8 }}
-        >
-          Bill From
-        </TypoGraphy>
-        <Input
-          label="Street Address"
-          value={billFromStreet}
-          onChangeText={setBillFromStreet}
-        />
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
-          <Input
-            label="City"
-            value={billFromCity}
-            onChangeText={setBillFromCity}
-          />
-          <Input
-            label="Postcode"
-            value={billFromPostcode}
-            onChangeText={setBillFromPostcode}
-          />
-        </View>
-        <Input
-          label="Country"
-          value={billFromCountry}
-          onChangeText={setBillFromCountry}
-        />
-
-        <TypoGraphy
-          variant="h3"
-          style={{ color: colors.purple[100], marginBottom: 8 }}
-        >
-          Bill To
-        </TypoGraphy>
-        <Input
-          label="Client's Name"
-          value={billToClientName}
-          onChangeText={setBillToClientName}
-        />
-        <Input
-          label="Client's Email"
-          value={billToClientEmail}
-          onChangeText={setBillToClientEmail}
-        />
-        <Input
-          label="Street Address"
-          value={billToStreet}
-          onChangeText={setBillToStreet}
-        />
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
-          <Input label="City" value={billToCity} onChangeText={setBillToCity} />
-          <Input
-            label="Postcode"
-            value={billToPostcode}
-            onChangeText={setBillToPostcode}
-          />
-        </View>
-        <Input
-          label="Country"
-          value={billToCountry}
-          onChangeText={setBillToCountry}
-        />
-
-        <InputDatePicker
-          label="Invoice Date"
-          value={invoiceDate}
-          onPress={() => setShowDatePicker(!showDatePicker)}
-        />
-
-        {showDatePicker ? (
-          <DateTimePicker
-            testID="invoiceDatePicker"
-            value={invoiceDate}
-            mode="date"
-            is24Hour={true}
-            display="default"
-            onChange={onChangeInvoiceDate}
-          />
-        ) : null}
-
-        <Selector
-          label="Payment Terms"
-          options={paymentTermOptions}
-          onSelect={handlePaymentTermSelect}
-          selectedValue={paymentTerm}
-          renderItem={(item) => <TypoGraphy>{item.label}</TypoGraphy>}
-          extractValue={(item) => item.value}
-        />
-
-        <Input
-          label="Project Description"
-          value={projectDescription}
-          onChangeText={setProjectDescription}
-        />
-
-        <TypoGraphy variant="h1">Item List</TypoGraphy>
-        {lineItems.map((item, index) => (
-          <View key={`${item.name}-${index}`}>
+    <Formik
+      initialValues={initialValues}
+      validationSchema={validationSchema}
+      onSubmit={(values, actions) => {
+        const paymentDueDate = new Date(values.invoiceDate);
+        if (values.paymentTerm !== null) {
+          paymentDueDate.setDate(paymentDueDate.getDate() + values.paymentTerm);
+        }
+        const invoiceData: Omit<Invoice, "status" | "id"> = {
+          description: values.projectDescription,
+          paymentTerms: values.paymentTerm!,
+          clientName: values.billToClientName,
+          clientEmail: values.billToClientEmail,
+          senderAddress: {
+            street: values.billFromStreet,
+            city: values.billFromCity,
+            postCode: values.billFromPostcode,
+            country: values.billFromCountry,
+          },
+          clientAddress: {
+            street: values.billToStreet,
+            city: values.billToCity,
+            postCode: values.billToPostcode,
+            country: values.billToCountry,
+          },
+          items: values.items.map((item) => ({
+            ...item,
+            total: item.quantity * item.price,
+          })),
+          total: values.items.reduce(
+            (sum, item) => sum + item.quantity * item.price,
+            0
+          ),
+          paymentDue: formatDateForSave(paymentDueDate),
+          createdAt: formatDateForSave(values.invoiceDate),
+        };
+        handleSave(invoiceData);
+        actions.setSubmitting(false);
+      }}
+    >
+      {(formikProps: FormikProps<FormValues>) => (
+        <ScrollView style={styles.container}>
+          <View style={{ padding: 24 }}>
+            <TypoGraphy variant="h1">
+              {type === "new" ? "New Invoice" : "Edit Invoice"}
+            </TypoGraphy>
+            <TypoGraphy
+              variant="h3"
+              style={{ color: colors.purple[100], marginBottom: 8 }}
+            >
+              Bill From
+            </TypoGraphy>
             <Input
-              label="Item Name"
-              value={item.name}
-              onChangeText={(text) => handleLineItemChange(index, "name", text)}
+              label="Street Address"
+              value={formikProps.values.billFromStreet}
+              onChangeText={formikProps.handleChange("billFromStreet")}
+              onBlur={formikProps.handleBlur("billFromStreet")}
+              error={
+                formikProps.touched.billFromStreet
+                  ? formikProps.errors.billFromStreet
+                  : ""
+              }
             />
             <View
-              style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+              style={{ flexDirection: "row", alignItems: "center", gap: 16 }}
             >
               <Input
-                label="Qty"
-                value={item.quantity.toString()}
-                onChangeText={(text) =>
-                  handleLineItemChange(index, "quantity", text)
+                label="City"
+                value={formikProps.values.billFromCity}
+                onChangeText={formikProps.handleChange("billFromCity")}
+                onBlur={formikProps.handleBlur("billFromCity")}
+                error={
+                  formikProps.touched.billFromCity
+                    ? formikProps.errors.billFromCity
+                    : ""
                 }
-                keyboardType="numeric"
               />
               <Input
-                label="Price"
-                value={item.price.toString()}
-                onChangeText={(text) =>
-                  handleLineItemChange(index, "price", text)
+                label="Postcode"
+                value={formikProps.values.billFromPostcode}
+                onChangeText={formikProps.handleChange("billFromPostcode")}
+                onBlur={formikProps.handleBlur("billFromPostcode")}
+                error={
+                  formikProps.touched.billFromPostcode
+                    ? formikProps.errors.billFromPostcode
+                    : ""
                 }
-                keyboardType="numeric"
               />
-              <Input
-                label="Total"
-                value={(item.quantity * item.price).toFixed(2)}
-                editable={false}
-              />
-              <Pressable onPress={() => onPressDeleteLineItem(index)}>
-                <IconDelete />
-              </Pressable>
             </View>
-          </View>
-        ))}
+            <Input
+              label="Country"
+              value={formikProps.values.billFromCountry}
+              onChangeText={formikProps.handleChange("billFromCountry")}
+              onBlur={formikProps.handleBlur("billFromCountry")}
+              error={
+                formikProps.touched.billFromCountry
+                  ? formikProps.errors.billFromCountry
+                  : ""
+              }
+            />
 
-        <Button
-          variant="secondary"
-          onPress={onPressAddLineItem}
-          fullWidth
-          containerStyle={{ backgroundColor: colors.black[200] }}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <IconPlus />
-            <TypoGraphy style={{ marginLeft: 8 }} variant="h2">
-              Add New Item
+            <TypoGraphy
+              variant="h3"
+              style={{ color: colors.purple[100], marginBottom: 8 }}
+            >
+              Bill To
             </TypoGraphy>
-          </View>
-        </Button>
-      </View>
+            <Input
+              label="Client's Name"
+              value={formikProps.values.billToClientName}
+              onChangeText={formikProps.handleChange("billToClientName")}
+              onBlur={formikProps.handleBlur("billToClientName")}
+              error={
+                formikProps.touched.billToClientName
+                  ? formikProps.errors.billToClientName
+                  : ""
+              }
+            />
+            <Input
+              label="Client's Email"
+              value={formikProps.values.billToClientEmail}
+              onChangeText={formikProps.handleChange("billToClientEmail")}
+              onBlur={formikProps.handleBlur("billToClientEmail")}
+              error={
+                formikProps.touched.billToClientEmail
+                  ? formikProps.errors.billToClientEmail
+                  : ""
+              }
+            />
+            <Input
+              label="Street Address"
+              value={formikProps.values.billToStreet}
+              onChangeText={formikProps.handleChange("billToStreet")}
+              onBlur={formikProps.handleBlur("billToStreet")}
+              error={
+                formikProps.touched.billToStreet
+                  ? formikProps.errors.billToStreet
+                  : ""
+              }
+            />
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 16 }}
+            >
+              <Input
+                label="City"
+                value={formikProps.values.billToCity}
+                onChangeText={formikProps.handleChange("billToCity")}
+                onBlur={formikProps.handleBlur("billToCity")}
+                error={
+                  formikProps.touched.billToCity
+                    ? formikProps.errors.billToCity
+                    : ""
+                }
+              />
+              <Input
+                label="Postcode"
+                value={formikProps.values.billToPostcode}
+                onChangeText={formikProps.handleChange("billToPostcode")}
+                onBlur={formikProps.handleBlur("billToPostcode")}
+                error={
+                  formikProps.touched.billToPostcode
+                    ? formikProps.errors.billToPostcode
+                    : ""
+                }
+              />
+            </View>
+            <Input
+              label="Country"
+              value={formikProps.values.billToCountry}
+              onChangeText={formikProps.handleChange("billToCountry")}
+              onBlur={formikProps.handleBlur("billToCountry")}
+              error={
+                formikProps.touched.billToCountry
+                  ? formikProps.errors.billToCountry
+                  : ""
+              }
+            />
 
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 8,
-          paddingVertical: 12,
-          paddingHorizontal: 24,
-          justifyContent: "center",
-          flex: 1,
-          backgroundColor: colors.black[200],
-          flexWrap: "wrap",
-        }}
-      >
-        <Button
-          variant="secondary"
-          onPress={() => handleSave("draft")}
-          containerStyle={{ backgroundColor: colors.grey[300], minWidth: 70 }}
-        >
-          <TypoGraphy variant="h2">Discard</TypoGraphy>
-        </Button>
-        <Button
-          variant="secondary"
-          onPress={() => handleSave("draft")}
-          containerStyle={{ backgroundColor: colors.grey[200], width: 120 }}
-        >
-          <TypoGraphy variant="h2">Save as Draft</TypoGraphy>
-        </Button>
-        <Button
-          variant="primary"
-          onPress={() => handleSave("pending")}
-          containerStyle={{ width: 120 }}
-        >
-          <TypoGraphy variant="h2">Save & Send</TypoGraphy>
-        </Button>
-      </View>
-    </ScrollView>
+            <InputDatePicker
+              label="Invoice Date"
+              value={formikProps.values.invoiceDate}
+              onChange={(_event, date) => {
+                formikProps.setFieldValue("invoiceDate", date);
+              }}
+            />
+
+            <Selector
+              label="Payment Terms"
+              options={paymentTermOptions}
+              onSelect={(value) =>
+                formikProps.setFieldValue("paymentTerm", value)
+              }
+              selectedValue={formikProps.values.paymentTerm}
+            />
+
+            <Input
+              label="Project Description"
+              value={formikProps.values.projectDescription}
+              onChangeText={formikProps.handleChange("projectDescription")}
+              onBlur={formikProps.handleBlur("projectDescription")}
+              error={
+                formikProps.touched.projectDescription
+                  ? formikProps.errors.projectDescription
+                  : ""
+              }
+            />
+
+            <TypoGraphy variant="h1">Item List</TypoGraphy>
+            <FieldArray name="items">
+              {(arrayHelpers) => (
+                <View>
+                  {formikProps.values.items.map((item, index) => (
+                    <View key={index}>
+                      <Input
+                        label="Item Name"
+                        value={formikProps.values.items[index].name}
+                        onChangeText={formikProps.handleChange(
+                          `items.${index}.name`
+                        )}
+                        onBlur={formikProps.handleBlur(`items.${index}.name`)}
+                        error={
+                          formikProps.touched.items?.[index]?.name &&
+                          typeof formikProps.errors.items?.[index] !== "string"
+                            ? formikProps.errors.items?.[index]?.name
+                            : ""
+                        }
+                      />
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <Input
+                          label="Qty"
+                          value={formikProps.values.items[
+                            index
+                          ].quantity.toString()}
+                          onChangeText={formikProps.handleChange(
+                            `items.${index}.quantity`
+                          )}
+                          onBlur={formikProps.handleBlur(
+                            `items.${index}.quantity`
+                          )}
+                          keyboardType="numeric"
+                          error={
+                            formikProps.touched.items?.[index]?.quantity &&
+                            typeof formikProps.errors.items?.[index] !==
+                              "string"
+                              ? formikProps.errors.items?.[index]?.quantity
+                              : ""
+                          }
+                        />
+                        <Input
+                          label="Price"
+                          value={formikProps.values.items[
+                            index
+                          ].price.toString()}
+                          onChangeText={formikProps.handleChange(
+                            `items.${index}.price`
+                          )}
+                          onBlur={formikProps.handleBlur(
+                            `items.${index}.price`
+                          )}
+                          keyboardType="numeric"
+                          error={
+                            formikProps.touched.items?.[index]?.price &&
+                            typeof formikProps.errors.items?.[index] !==
+                              "string"
+                              ? formikProps.errors.items?.[index]?.price
+                              : ""
+                          }
+                        />
+                        <Input
+                          label="Total"
+                          value={(
+                            formikProps.values.items[index].quantity *
+                            formikProps.values.items[index].price
+                          ).toFixed(2)}
+                          editable={false}
+                        />
+                        <Pressable onPress={() => arrayHelpers.remove(index)}>
+                          <IconDelete />
+                        </Pressable>
+                      </View>
+                    </View>
+                  ))}
+
+                  <Button
+                    variant="secondary"
+                    onPress={() => arrayHelpers.push(initialItem)}
+                    fullWidth
+                    containerStyle={{ backgroundColor: colors.black[200] }}
+                  >
+                    <View
+                      style={{ flexDirection: "row", alignItems: "center" }}
+                    >
+                      <IconPlus />
+                      <TypoGraphy style={{ marginLeft: 8 }} variant="h2">
+                        Add New Item
+                      </TypoGraphy>
+                    </View>
+                  </Button>
+                </View>
+              )}
+            </FieldArray>
+          </View>
+
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              paddingVertical: 12,
+              paddingHorizontal: 24,
+              justifyContent: "center",
+              flex: 1,
+              backgroundColor: colors.black[200],
+              flexWrap: "wrap",
+            }}
+          >
+            {isEdit ? (
+              <>
+                <Button
+                  variant="secondary"
+                  onPress={handleDiscard}
+                  containerStyle={{
+                    backgroundColor: colors.grey[300],
+                    minWidth: 70,
+                  }}
+                >
+                  <TypoGraphy variant="h2">Cancel</TypoGraphy>
+                </Button>
+
+                <Button
+                  variant="primary"
+                  onPress={formikProps.handleSubmit}
+                  disabled={formikProps.isSubmitting}
+                  containerStyle={{ width: 120 }}
+                >
+                  <TypoGraphy variant="h2">Save changes</TypoGraphy>
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="secondary"
+                  onPress={handleDiscard}
+                  containerStyle={{
+                    backgroundColor: colors.grey[300],
+                    minWidth: 70,
+                  }}
+                >
+                  <TypoGraphy variant="h2">Discard</TypoGraphy>
+                </Button>
+                <Button
+                  variant="secondary"
+                  onPress={() => {
+                    handleSaveDraft(formikProps.values);
+                  }}
+                  containerStyle={{
+                    backgroundColor: colors.grey[200],
+                    width: 120,
+                  }}
+                >
+                  <TypoGraphy variant="h2">Save as Draft</TypoGraphy>
+                </Button>
+                <Button
+                  variant="primary"
+                  onPress={formikProps.handleSubmit}
+                  disabled={formikProps.isSubmitting}
+                  containerStyle={{ width: 120 }}
+                >
+                  <TypoGraphy variant="h2">Save & Send</TypoGraphy>
+                </Button>
+              </>
+            )}
+          </View>
+        </ScrollView>
+      )}
+    </Formik>
   );
 };
 

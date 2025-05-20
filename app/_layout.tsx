@@ -56,6 +56,7 @@ export default function RootLayout() {
           <Stack.Screen name="invoices" />
           <Stack.Screen name="invoices/new" />
           <Stack.Screen name="invoices/:id" />
+          <Stack.Screen name="invoices/:id/edit" />
           <Stack.Screen name="+not-found" />
         </Stack>
         <StatusBar style="auto" />

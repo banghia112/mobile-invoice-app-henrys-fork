@@ -1,6 +1,9 @@
 import { colors } from "@/constants/Colors";
-import { formatDate } from "@/utils/formatter.utils";
-import React from "react";
+import { formatDisplayDate } from "@/utils/formatter.utils";
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
+import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { TypoGraphy } from "../TypoGraphy";
 
@@ -8,29 +11,48 @@ interface InputProps {
   label?: string;
   error?: string;
   value: Date;
-  onPress: () => void;
+  onChange: (event: DateTimePickerEvent, date: Date | undefined) => void;
 }
 
 export const InputDatePicker: React.FC<InputProps> = ({
   label,
   value,
   error,
-  onPress,
+  onChange,
 }) => {
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+
+  const onPress = () => {
+    setIsOpen(!isOpen);
+  };
+
+  const onChangeDate = (event: DateTimePickerEvent, date: Date | undefined) => {
+    onChange(event, date);
+    setIsOpen(false);
+  };
+
   return (
-    <Pressable style={styles.container} onPress={onPress}>
-      {label && (
-        <TypoGraphy variant="body1" style={styles.label}>
-          {label}
-        </TypoGraphy>
+    <View>
+      <Pressable style={styles.container} onPress={onPress}>
+        {label && (
+          <TypoGraphy variant="body1" style={styles.label}>
+            {label}
+          </TypoGraphy>
+        )}
+        <View style={[styles.input, error && styles.inputError]}>
+          <TypoGraphy variant="body2">
+            {formatDisplayDate(value.toISOString())}
+          </TypoGraphy>
+        </View>
+        {error && <Text style={styles.errorText}>{error}</Text>}
+      </Pressable>
+
+      {isOpen ? (
+        <DateTimePicker onChange={onChangeDate} value={value} />
+      ) : (
+        <></>
       )}
-      <View style={[styles.input, error && styles.inputError]}>
-        <TypoGraphy variant="body2">
-          {formatDate(value.toISOString())}
-        </TypoGraphy>
-      </View>
-      {error && <Text style={styles.errorText}>{error}</Text>}
-    </Pressable>
+    </View>
   );
 };
 

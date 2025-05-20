@@ -1,3 +1,4 @@
+import { generateInvoiceId } from "@/helper/invoice.helper";
 import { getFromStorage, setToStorage } from "@/utils/storage.utils";
 
 const INVOICE_STORAGE_KEY = "invoices";
@@ -319,13 +320,43 @@ const invoiceService = {
    * @param invoice The invoice object to add.
    * @returns A promise that resolves to the newly created invoice ID.
    */
-  async addInvoice(invoice: Invoice): Promise<string> {
+  async addInvoice(invoice: Omit<Invoice, "id">): Promise<string> {
     try {
       const invoices =
         (await getFromStorage<Invoice[]>(INVOICE_STORAGE_KEY)) || [];
-      const updatedInvoices = [...invoices, invoice];
+
+      const fullInvoice: Invoice = { ...invoice, id: generateInvoiceId() };
+      const updatedInvoices = [fullInvoice, ...invoices];
       await setToStorage<Invoice[]>(INVOICE_STORAGE_KEY, updatedInvoices);
-      return invoice.id;
+      return "Add invoice successfully";
+    } catch (error) {
+      console.error("Failed to add invoice:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Adds a new invoice to the storage.
+   * @param invoice The invoice object to add.
+   * @returns A promise that resolves to the newly created invoice ID.
+   */
+  async addDraftInvoice(
+    invoice: Partial<Omit<Invoice, "id">>
+  ): Promise<string> {
+    try {
+      const invoices =
+        (await getFromStorage<Invoice[]>(INVOICE_STORAGE_KEY)) || [];
+
+      const fullInvoice: Partial<Invoice> = {
+        ...invoice,
+        id: generateInvoiceId(),
+      };
+      const updatedInvoices = [fullInvoice, ...invoices];
+      await setToStorage<Partial<Invoice>[]>(
+        INVOICE_STORAGE_KEY,
+        updatedInvoices
+      );
+      return "Add invoice successfully";
     } catch (error) {
       console.error("Failed to add invoice:", error);
       throw error;
